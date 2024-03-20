@@ -1,1 +1,98 @@
+import csv
+import math
+import pandas as pd
+def read_dataset(file_path):
+    nodes = []
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip header
+        for row in reader:
+            node_id, lat, lon = row
+            nodes.append((int(node_id), float(lat), float(lon)))
+    return nodes
+
+def calculate_distance(node1, node2):
+    lat1, lon1 = node1[1], node1[2]
+    lat2, lon2 = node2[1], node2[2]
+    # Haversine formula to calculate distance between two points
+    radius = 6371  # Earth radius in kilometers
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    distance = radius * c
+    return distance
+
+def generate_distance_matrix(nodes):
+    num_nodes = len(nodes)
+    distance_matrix = [[0] * num_nodes for _ in range(num_nodes)]
+    for i in range(num_nodes):
+        for j in range(num_nodes):
+            distance_matrix[i][j] = calculate_distance(nodes[i], nodes[j])
+    return distance_matrix
+
+def hamiltonian_circuit(distance_matrix):
+    num_nodes = len(distance_matrix)
+    path = [0]  # Start from the first node (depot)
+    visited = [False] * num_nodes
+    visited[0] = True
+
+    def backtrack():
+        if len(path) == num_nodes and distance_matrix[path[-1]][0] != 0:
+            return True
+        for next_node in range(num_nodes):
+            if not visited[next_node] and distance_matrix[path[-1]][next_node] != 0:
+                path.append(next_node)
+                visited[next_node] = True
+                if backtrack():
+                    return True
+                path.pop()
+                visited[next_node] = False
+        return False
+
+    if backtrack():
+        path.append(0)  # Return to depot
+        return path
+    else:
+        return None
+
+def generate_output(nodes, route):
+    output = []
+    output.append('order_id')
+    for node_id in route:
+        if node_id == nodes[0][0]:  # If depot
+            continue
+        output.append(str(node_id))
+    output.append('lng lat depot_lat')
+    for node_id in route:
+        if node_id == nodes[0][0]:  # If depot
+            continue
+        node = next(node for node in nodes if node[0] == node_id)
+        output.append(f"{node[2]} {node[1]} {nodes[0][2]}")
+    output.append('depot_lng')
+    for node_id in route:
+        if node_id == nodes[0][0]:  # If depot
+            continue
+        output.append(str(nodes[0][2]))
+    output.append('dlvr_seq_num')
+    dlvr_seq_num = 1
+    for node_id in route[1:-1]:
+        output.append(str(dlvr_seq_num))
+        dlvr_seq_num += 1
+    return output
+
+def main():
+    input_file = 'jl.csv'
+    nodes = pd.read_csv(input_file)
+    distance_matrix = generate_distance_matrix(nodes)
+    route = hamiltonian_circuit(distance_matrix)
+    if route:
+        output = generate_output(nodes, route)
+        for line in output:
+            print(line)
+    else:
+        print("No Hamiltonian Circuit found.")
+
+if __name__ == "__main__":
+    main()
 
